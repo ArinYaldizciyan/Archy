@@ -65,33 +65,46 @@ Tree-sitter parses source files and extracts:
 
 Each node includes: file path, line number, symbol name, type, and module assignment.
 
-#### Layer 2: Semantic (Annotated)
+#### Layer 2: Semantic (In-Code Annotations)
 
-Developers or AI assistants enrich the graph with semantic connections that static analysis cannot infer. These are stored in `.archy/semantic.yaml`:
+Developers or AI assistants enrich the graph with semantic connections that static analysis cannot infer. These live **in the source code as structured comments**, using the `@archy` prefix:
 
-```yaml
-connections:
-  - from: "services/queue.ts:enqueue"
-    to: "workers/transform.ts:processMessage"
-    type: "triggers"
-    via: "SQS:ingest-queue"
-    description: "Enqueued messages trigger the transform worker"
-
-  - from: "drivers/uart.c:uart_send"
-    to: "ext:UUT"
-    type: "connects-to"
-    via: "UART:TX"
-    description: "Sends test commands to Unit Under Test"
+```typescript
+// @archy connects-to workers/transform.ts:processMessage via SQS:ingest-queue
+// @archy description "Enqueued messages trigger the transform worker"
+export function enqueue(message: Message) { ... }
 ```
 
-**Anchoring rule**: Every semantic edge must reference at least one structural node (identified by `file:symbol`). This enables drift detection — if the referenced code entity is deleted or renamed, Archy flags the orphaned annotation.
+```python
+# @archy connects-to workers/transform.py:process_message via SQS:ingest-queue
+# @archy description "Enqueued messages trigger the transform worker"
+def enqueue(message: dict):
+```
+
+```c
+// @archy connects-to ext:UUT via UART:TX
+// @archy description "Sends test commands to Unit Under Test"
+void uart_send(uint8_t* data, size_t len) {
+```
+
+**Why in-code**: Annotations that live in the code move with it — if a function is renamed, deleted, or refactored, the annotation follows. This eliminates the anchor drift problem entirely. Annotations are also visible in code review, discoverable while reading code, and diffable in git alongside the changes they describe. This follows the same pattern as Spring Boot annotations or JSDoc tags, but works across all languages via comments.
+
+**Comment syntax**: `@archy <directive> <args>`. Tree-sitter already parses comments, so extracting `@archy` directives is a natural extension of the structural parsing pass — no second file to read.
+
+**Supported directives**:
+- `@archy connects-to <target> [via <medium>]` — declares a connection to another entity
+- `@archy triggers <target> [via <medium>]` — declares an async trigger relationship
+- `@archy reads-from <target>` / `@archy writes-to <target>` — data flow declarations
+- `@archy exposes <endpoint>` — declares an exposed interface (REST route, gRPC service, etc.)
+- `@archy layer <name>` — assigns this entity to an architectural layer
+- `@archy description "<text>"` — human-readable description of architectural role
+- `@archy group <name>` — overrides automatic module assignment
 
 #### Layer 3: External (Boundary Declarations)
 
-Entities outside the codebase that participate in the architecture:
+Entities outside the codebase have no source file to attach annotations to, so they are declared in `.archy/externals.yaml`:
 
 ```yaml
-# .archy/semantic.yaml
 externals:
   - id: "ext:UUT"
     type: "device"
@@ -109,7 +122,7 @@ externals:
         protocol: "HTTPS"
 ```
 
-External nodes use an `ext:` prefix. They render with distinct visual styling (dashed borders) to differentiate from in-codebase entities.
+External nodes use an `ext:` prefix. They render with distinct visual styling (dashed borders) to differentiate from in-codebase entities. The `.archy/externals.yaml` file is the only separate annotation file — it exists because external entities have no code to attach to.
 
 ### Module Detection
 
@@ -326,8 +339,7 @@ Start with basic resolution (relative imports, configured paths). Flag unresolve
    - Detection: `archy generate --dry-run` produces different output than committed file
    - CI: Fail the build
 
-2. **Annotation drift**: Annotations reference code entities that no longer exist
-   - Detection: `archy validate` checks all anchors
+2. **Annotation drift**: Largely eliminated by in-code annotations (they move with the code). Only applies to `.archy/externals.yaml` references — `archy validate` checks that `ext:` targets referenced from code annotations actually exist in the externals file.
    - CI: Warning or error (configurable via `strict_anchors`)
 
 3. **Undocumented connections**: New cross-module calls without semantic annotation
@@ -408,7 +420,7 @@ The first working version includes:
 4. **`archy validate`** — annotation anchor checking
 5. **`archy diff`** — show changes since last generation
 6. **`archy check`** — CI gate for stale architecture
-7. **Semantic annotations** — `.archy/semantic.yaml` with connection and external definitions
+7. **Semantic annotations** — `@archy` in-code comment directives + `.archy/externals.yaml` for boundary declarations
 8. **Scope configuration** — `.archy.config.yaml` with include/exclude
 9. **Basic path resolution** — tsconfig paths for TS, relative imports for Python
 
