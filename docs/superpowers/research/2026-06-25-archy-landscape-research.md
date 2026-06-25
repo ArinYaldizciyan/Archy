@@ -1,8 +1,63 @@
 # Archy: Deep Landscape Research & Feasibility Analysis
 
 **Date**: 2026-06-25  
-**Status**: Research Complete  
+**Status**: Research Complete + Multi-Agent Analysis  
 **Ticket**: SHV-129  
+
+---
+
+## Multi-Agent Analysis: Key Design Questions
+
+Four independent analyses were run in parallel to evaluate critical questions about the proposed CM-integrated Archy architecture.
+
+### Q1: Is CM's Graph a Good Enough Architecture Representation?
+
+**Verdict: Necessary but not sufficient. Archy's annotation layer is the critical bridge.**
+
+CM captures the syntactic skeleton effectively — which functions exist, what calls what, who imports whom. What it fundamentally misses: architectural intent, runtime topology (message queues, event buses), data flow semantics, and boundary significance. A `CALLS` edge between `enqueue()` and an SQS SDK wrapper looks identical to one between two utility functions — they are architecturally different by orders of magnitude.
+
+Archy's `@archy` annotations (connects-to, triggers, layer, description) add exactly the missing intent and medium information. The combination works as a validation tool **if** annotation coverage is enforced, not optional. The `require_cross_module_annotations` rule is the enforcement mechanism that forces the gap to be filled at module boundaries where it matters most.
+
+### Q2: Is LLM-Generated Annotation Risky?
+
+**Verdict: Meaningfully safer than freeform architecture inference, but not zero-risk.**
+
+Three key advantages over LLM-generated architecture:
+1. **Scope reduction**: Annotating one function = narrow, verifiable claim. The 22.6% failure rate from research measures whole-system inference — a fundamentally harder task.
+2. **Structured constraints**: `@archy` has a fixed grammar. Bad annotations are discrete, parseable errors. Bad architecture diagrams invent phantom services invisibly.
+3. **Code review catches them**: Annotations appear in PR diffs. Reviewers evaluate single claims in context — the most battle-tested validation in software engineering.
+
+The CM structural graph helps by anchoring LLM reasoning in verified facts (deterministic tree-sitter output), constraining what it can claim.
+
+**Right model**: LLMs **suggest** annotations (`archy annotate --suggest`), humans **validate** in code review.
+
+### Q3: What's the Token Efficiency Case?
+
+**Verdict: 100-300x reduction over raw source. Strong data-backed case.**
+
+For a ~50K LOC project (~1.5M raw tokens):
+- **Raw source**: ~1.5M tokens
+- **CM full graph**: ~150K tokens (10x reduction, per CM's benchmarks)
+- **archy.json**: ~5-15K tokens (curated nodes + annotations only)
+
+The additional 10-30x reduction over CM comes from curation — archy.json includes only architecturally significant nodes with semantic annotations. It captures intent ("this is the auth boundary") so the LLM doesn't need to read 40 files to figure it out.
+
+A benchmark would test: 20+ repos, generate new feature code under three conditions (raw source vs CM graph vs archy.json). Hypothesis: archy.json achieves >90% of CM's correctness at <10% of CM's token cost, with >50% fewer boundary violations.
+
+### Q4: Visual Architecture Editor Vision
+
+**Verdict: Compelling and unique, but firmly post-v1.**
+
+No existing tool does: visual design → in-code annotations → LLM constraint → validation loop. The closest is Structurizr (visual editor → versionable output), but it's top-down only (no code extraction).
+
+Sequencing:
+- **V1**: CLI + archy.json + annotations + CI enforcement
+- **V2**: `archy serve` as read-only web viewer (D3/Cytoscape.js rendering of archy.json)
+- **V3**: Visual editing that emits annotation stubs
+
+Hard problems for later: mapping visual blocks back to code locations, handling refactoring, granularity mismatch (visual = module-level, code = function-level).
+
+---
 
 ## Executive Summary
 
