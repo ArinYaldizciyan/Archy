@@ -1,7 +1,7 @@
 # Archy: Deterministic Architecture Generation
 
 **Date**: 2026-06-23
-**Status**: Draft
+**Status**: Deprecated — superseded by [2026-06-25-archy-design-v2.md](./2026-06-25-archy-design-v2.md)
 **Author**: SHV-118 Research Session
 
 ## Problem Statement
