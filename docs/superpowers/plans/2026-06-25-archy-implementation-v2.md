@@ -2,6 +2,13 @@
 
 > **For agentic workers:** Before implementing ANY task, read the [Philosophical Guardrails](../specs/2026-06-25-archy-design-v2.md#philosophical-guardrails) in the design spec. If your solution violates a guardrail, it is wrong regardless of how well it works.
 
+> **For problems marked `BRAINSTORM REQUIRED`:** These are not one-shot problems. Before implementing, you MUST:
+> 1. Research the problem space and identify at least 2-3 viable approaches
+> 2. Present the approaches with trade-offs to the user for discussion
+> 3. Get explicit user approval on the chosen approach before writing implementation code
+>
+> Do NOT skip this step because the problem seems solvable. These are marked because the wrong approach creates compounding problems downstream. Interactive discussion with the user is part of the process, not an obstacle to it.
+
 **Goal:** Build a deterministic architecture governance CLI that integrates Codebase-Memory for structural extraction, adds in-code annotation enrichment, and produces a versioned, diffable `archy.json` artifact with CI enforcement.
 
 **Design Spec:** [2026-06-25-archy-design-v2.md](../specs/2026-06-25-archy-design-v2.md)
@@ -121,26 +128,29 @@ Each layer is an independent problem domain. Layers communicate through the type
 
 **Sub-problems**:
 
-1. **CM Lifecycle Management** (`cm-runner.ts`)
-   - How to bundle CM binary with Archy (npm postinstall? platform-specific binaries?)
+1. **CM Lifecycle Management** (`cm-runner.ts`) — `BRAINSTORM REQUIRED`
+   - How to bundle CM binary with Archy (npm postinstall? platform-specific binaries? optional peer dependency?)
    - How to invoke CM indexing for a project
    - How to detect if CM is already indexed (skip re-index)
    - Version pinning: which CM release works with which Archy release
    - Error handling: CM crashes, timeouts, corrupted databases
+   - **Why brainstorm**: The bundling strategy affects installation UX, CI compatibility, and cross-platform support. Wrong choice here means painful migration later.
 
-2. **CM Data Reading** (`cm-reader.ts`)
+2. **CM Data Reading** (`cm-reader.ts`) — `BRAINSTORM REQUIRED`
    - Interface choice: CLI mode (`codebase-memory-mcp cli <tool> '<json>'`) vs. direct SQLite read
    - If CLI: which tools to call? `search_graph`, `get_architecture`, `query_graph` (Cypher)?
    - If SQLite: decompress `.codebase-memory/graph.db.zst`, query tables directly
    - Pagination: CM may have thousands of nodes — how to handle?
    - Tradeoff: CLI is stable API, SQLite is faster but couples to CM internals
+   - **Why brainstorm**: This is the most consequential API coupling decision. CLI gives stability but limits us to CM's tool semantics. SQLite gives full control but breaks on CM schema changes. A hybrid approach may be best, but needs prototyping.
 
-3. **CM → Archy Mapping** (`cm-mapper.ts`)
+3. **CM → Archy Mapping** (`cm-mapper.ts`) — `BRAINSTORM REQUIRED`
    - Node type mapping: CM `Function`/`Method` → Archy `function`, CM `Class` → `class`, etc.
    - Edge type mapping: which CM edges are architecturally relevant? (CALLS, IMPORTS, IMPLEMENTS, HTTP_CALLS — probably yes. SEMANTICALLY_RELATED, SIMILAR_TO — probably no.)
    - ID generation: CM node IDs → Archy's `file:symbol` format
    - Property preservation: what CM metadata to keep in `ArchyNode.metadata`?
    - Handling CM features Archy doesn't model (confidence scores, complexity, routes)
+   - **Why brainstorm**: The mapping defines what Archy "sees" architecturally. Too aggressive filtering loses useful data. Too permissive creates noise. The right mapping should be informed by running CM on real projects and examining its output.
 
 ---
 
@@ -166,12 +176,13 @@ Each layer is an independent problem domain. Layers communicate through the type
    - Error recovery: helpful messages for typos and malformed directives
    - Quoted string handling for `description "text here"`
 
-3. **Entity Association** (`associator.ts`)
+3. **Entity Association** (`associator.ts`) — `BRAINSTORM REQUIRED`
    - Given an `@archy` comment on line N, which CM node does it annotate?
    - Strategy: find the nearest CM node whose line number is >= N (the "next declaration" after the comment)
    - Edge case: comment at end of file with no following entity
    - Edge case: multiple annotations before a single entity
    - Edge case: annotation on an entity CM didn't extract (constant, config object)
+   - **Why brainstorm**: This is the seam between CM's structural world and Archy's semantic world. The association strategy determines annotation reliability. Line-proximity is the obvious approach but has failure modes (comments separated from entities by whitespace, decorators, or other comments). Alternative approaches include explicit `@archy for <entity>` syntax, or using CM's scope/containment info. Multiple approaches need evaluation against real codebases.
 
 ---
 
@@ -203,10 +214,11 @@ Each layer is an independent problem domain. Layers communicate through the type
 
 **Sub-problems**:
 
-1. **Target Resolution**
+1. **Target Resolution** — `BRAINSTORM REQUIRED`
    - Annotation targets like `workers/transform.ts:processMessage` need to resolve to actual CM node IDs
    - Partial matching? Fuzzy matching? Exact only?
    - What happens when a target doesn't resolve? (warning + dangling edge)
+   - **Why brainstorm**: The target syntax is user-facing — it determines how natural annotations feel to write. Too strict (`src/workers/transform.ts:processMessage` exact path) is fragile to refactoring. Too loose (just `processMessage`) is ambiguous. The right answer may involve multiple resolution strategies with a priority order, or a different target syntax altogether. Needs real-world annotation writing to evaluate.
 
 2. **Module Assignment** (`modules.ts`)
    - Default: directory-based (each top-level dir under scope = a module)
@@ -267,13 +279,14 @@ Each layer is an independent problem domain. Layers communicate through the type
    - Exit code 0 (fresh) or 1 (stale) for CI
    - Performance: full regeneration on every check — acceptable for v1?
 
-2. **Semantic Diffing** (`differ.ts`)
+2. **Semantic Diffing** (`differ.ts`) — `BRAINSTORM REQUIRED`
    - NOT raw JSON diff — understand the graph structure
    - Added/removed nodes (with type and module context)
    - Added/removed edges (with description of what connection changed)
    - Module boundary changes
    - Human-readable terminal output (colors, grouping by module)
    - Machine-readable output (JSON) for CI integration
+   - **Why brainstorm**: Graph diffing is a known hard problem. Naive approaches (compare sorted node/edge arrays) miss semantic changes (a renamed function looks like a delete + add). The right algorithm depends on what changes matter most to users — is a renamed function a "change" or a "delete + add"? Is a moved function (same code, different module) the most important change to surface? Needs user input on what makes a useful diff.
 
 3. **Validation** (`validator.ts`)
    - Anchor checking: do `ext:` targets in semantic edges exist in `.archy/externals.yaml`?
@@ -347,6 +360,23 @@ Layer 0 (Types + Scaffolding)
 - CLI commands (wire everything together)
 - Integration tests
 - README / documentation
+
+---
+
+## Problems Requiring Interactive Brainstorming
+
+These sub-problems are marked `BRAINSTORM REQUIRED` throughout the plan. Each needs 2-3 approaches presented to the user with trade-offs before implementation begins.
+
+| Problem | Layer | Why It's Hard |
+|---------|-------|---------------|
+| CM bundling strategy | L1: CM Bridge | Affects install UX, CI, cross-platform. Hard to change later. |
+| CM data interface (CLI vs SQLite) | L1: CM Bridge | Most consequential API coupling decision. |
+| CM → Archy type mapping | L1: CM Bridge | Defines what Archy "sees." Needs real CM output to evaluate. |
+| Annotation → entity association | L2: Annotations | Line-proximity has failure modes. Alternative syntaxes exist. |
+| Annotation target resolution | L4: Graph Merger | User-facing syntax. Too strict = fragile, too loose = ambiguous. |
+| Semantic graph diffing | L6: Governance | Known hard problem. "What matters" is subjective. |
+
+**Rule**: An agent picking up a brainstorm-required problem must use `AskUserQuestion` to present approaches before writing code. One-shot implementations of these problems will be rejected.
 
 ---
 
