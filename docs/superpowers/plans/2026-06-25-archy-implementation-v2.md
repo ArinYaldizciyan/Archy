@@ -338,28 +338,28 @@ Layer 0 (Types + Scaffolding)
 
 ---
 
-## Implementation Sequence
+## Implementation Sequence (with ticket references)
 
 ### Phase 1: Foundation
-- Layer 0: Types + scaffolding
-- Layer 3: External loader (simplest, proves the pattern)
+- **SHV-129** — Layer 0: Types + scaffolding
+- **SHV-150** — Layer 3: External loader (simplest, proves the pattern)
+- **SHV-155** — Layer 8: Config system
 
 ### Phase 2: Input Layers (parallelizable)
-- Layer 1: CM bridge
-- Layer 2: Annotation scanner
+- **SHV-148** — Layer 1: CM Bridge (⚠️ 3 BRAINSTORM REQUIRED)
+- **SHV-149** — Layer 2: Annotation Scanner (⚠️ 1 BRAINSTORM REQUIRED)
 
 ### Phase 3: Core Pipeline
-- Layer 4: Graph merger
-- Layer 5: Serializer
+- **SHV-151** — Layer 4: Graph Merger (⚠️ 1 BRAINSTORM REQUIRED)
+- **SHV-152** — Layer 5: Serializer
 
-### Phase 4: Governance + Output
-- Layer 6: Governance engine
-- Layer 7: Renderer
+### Phase 4: Governance + Output (parallelizable)
+- **SHV-153** — Layer 6: Governance Engine (⚠️ 1 BRAINSTORM REQUIRED)
+- **SHV-154** — Layer 7: Renderer
 
 ### Phase 5: Integration
-- CLI commands (wire everything together)
-- Integration tests
-- README / documentation
+- **SHV-156** — CLI commands (wire everything together)
+- **SHV-157** — E2E tests + README documentation
 
 ---
 
