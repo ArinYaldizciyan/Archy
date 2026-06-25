@@ -1,6 +1,6 @@
-# Archy Implementation Plan
+# Archy Implementation Plan (DEPRECATED)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status**: Deprecated — superseded by [2026-06-25-archy-implementation-v2.md](./2026-06-25-archy-implementation-v2.md)
 
 **Goal:** Build a deterministic CLI tool that generates versioned architecture representations (JSON + Mermaid) from source code using tree-sitter, with in-code annotation support and CI enforcement.
 
